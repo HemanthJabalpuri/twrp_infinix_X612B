@@ -1,0 +1,61 @@
+# For Microtrust internal development
+service teei_loader /vendor/bin/teei_loader
+    user root
+    group root
+    disabled
+    oneshot
+    seclabel u:r:recovery:s0
+
+service init_thh_service /vendor/bin/init_thh startload
+    user root
+    group root
+    disabled
+    oneshot
+    seclabel u:r:recovery:s0
+
+# Start storageproxyd Daemon
+service istorageproxyd /vendor/bin/istorageproxyd -d /dev/trusty-ipc-dev0 -f /data/vendor/thh/trusty -p com.android.trusty.storage.proxy -r /dev/block/mmcblk0rpmb
+    group root
+    disabled
+    seclabel u:r:recovery:s0
+
+# If support persist sector, define this service, and start on fs,
+# if meta mode or factory mode need this service, also need to start this service in meta_init.rc, factory.rc
+service storage_persist /vendor/bin/istorageproxyd -d /dev/trusty-ipc-dev0 -p com.android.trusty.storage.persist -v /mnt/vendor/persist/rpmb
+    group root
+    disabled
+    oneshot
+    seclabel u:r:recovery:s0
+
+# For MTK DRM integration:
+on fs
+    chmod 0660 /dev/teei_loader
+    chmod 0660 /dev/teei_fp
+    chown system system /dev/teei_fp
+    chown system system /dev/teei_loader
+
+    start teei_loader
+
+on post-fs
+    restorecon_recursive /mnt/vendor
+    chown system system /mnt/vendor/persist
+    chmod 0771 /mnt/vendor/persist
+    restorecon_recursive /mnt/vendor/persist
+
+    mkdir /mnt/vendor/persist/rpmb
+	chown system system /mnt/vendor/persist/rpmb
+	chmod 0771 /mnt/vendor/persist/rpmb
+    restorecon_recursive /mnt/vendor/persist/rpmb
+
+    start init_thh_service
+    start istorageproxyd
+    start storage_persist
+
+on post-fs-data
+    write /proc/bootprof "start itrusty secure storage"
+    mkdir data/vendor
+    mkdir /cache/trusty 0775 system system
+    mkdir /data/vendor/thh 0755 system system
+    mkdir /data/vendor/thh/trusty 0755 system system
+    mkdir /data/vendor/thh/tee_00 0755 system system
+    restorecon_recursive /data/vendor/thh

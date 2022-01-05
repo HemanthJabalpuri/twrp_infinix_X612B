@@ -1,0 +1,55 @@
+import /init.recovery.microtrust.rc
+
+on init
+    mkdir /mnt/vendor/persist 0700 root root
+    mount ext4 /dev/block/platform/bootdevice/by-name/persist /mnt/vendor/persist
+
+on fs
+    install_keyring
+
+service keystore_auth /system/bin/keystore_auth
+    oneshot
+    user system
+    group root
+    disabled
+    seclabel u:r:recovery:s0
+
+service keystore /system/bin/keystore /tmp/misc/keystore
+    user root
+    group root drmrpc readproc
+    disabled
+    seclabel u:r:recovery:s0
+
+service gatekeeper-1-0 /vendor/bin/hw/android.hardware.gatekeeper@1.0-service
+    user root
+    group root
+    disabled
+    seclabel u:r:recovery:s0
+
+service keymaster-3-0 /vendor/bin/hw/android.hardware.keymaster@3.0-service
+    user root
+    group root drmrpc
+    disabled
+    seclabel u:r:recovery:s0
+
+on property:hwservicemanager.ready=true
+    start keymaster-3-0
+    start gatekeeper-1-0
+
+on property:ro.crypto.state=unsupported
+    stop teei_loader
+    stop init_thh_service
+    stop keymaster-3-0
+    stop gatekeeper-1-0
+
+on property:ro.crypto.state=unencrypted
+    stop teei_loader
+    stop init_thh_service
+    stop keymaster-3-0
+    stop gatekeeper-1-0
+
+on property:twrp.decrypt.done=true
+    stop teei_loader
+    stop init_thh_service
+    stop keymaster-3-0
+    stop gatekeeper-1-0
